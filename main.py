@@ -425,10 +425,10 @@ def main():
     schedule.every().day.at("18:00").do(job_missoes)
     print("   07:30 e 15:00 BRT agendados (missões Betano)")
 
-    # Curiosidades da operação — 12:00 e 18:00 BRT (15:00 / 21:00 UTC)
-    schedule.every().day.at("15:00").do(job_curiosidade, slot=0)
-    schedule.every().day.at("21:00").do(job_curiosidade, slot=1)
-    print("   12:00 e 18:00 BRT agendados (curiosidades)")
+    # Curiosidades da operação — 12:30 e 21:00 BRT (15:30 / 00:00 UTC)
+    schedule.every().day.at("15:30").do(job_curiosidade, slot=0)
+    schedule.every().day.at("00:00").do(job_curiosidade, slot=1)
+    print("   12:30 e 21:00 BRT agendados (curiosidades)")
 
     print("\n   Aguardando próximo horário...\n")
     while True:
