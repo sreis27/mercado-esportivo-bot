@@ -302,6 +302,17 @@ def job_silencio():
     except Exception as e:
         print(f"  ❌ Erro no job_silencio: {e}")
 
+MSG_MISSOES = ("🎁 *Checklist de início de turno:*\n"
+               "Ativem as missões da Betano nas contas — missão ativada é aposta grátis garantida. "
+               "Não deixem freebet na mesa.")
+
+def job_missoes():
+    try:
+        send_telegram(MSG_MISSOES)
+        print("  🎁 Lembrete de missões enviado")
+    except Exception as e:
+        print(f"  ❌ Erro no job_missoes: {e}")
+
 def main():
     print("🚀 Monitor Mercado Esportivo iniciado")
     print(f"   Horários programados (BRT): {', '.join(HORARIOS)}")
@@ -326,6 +337,11 @@ def main():
     # Vigia de silêncio no Planilhar — checa a cada 5 min
     schedule.every(5).minutes.do(job_silencio)
     print("   Vigia de silêncio ativo (90min, turnos 07:00-14:30 / 14:30-22:00 BRT)")
+
+    # Lembrete de missões Betano — início de cada turno (07:30 / 15:00 BRT)
+    schedule.every().day.at("10:30").do(job_missoes)
+    schedule.every().day.at("18:00").do(job_missoes)
+    print("   07:30 e 15:00 BRT agendados (missões Betano)")
 
     print("\n   Aguardando próximo horário...\n")
     while True:
