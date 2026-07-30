@@ -314,20 +314,10 @@ def job_missoes():
 
 def main():
     print("🚀 Monitor Mercado Esportivo iniciado")
-    print(f"   Horários programados (BRT): {', '.join(HORARIOS)}")
-
-    for h in HORARIOS:
-        schedule.every().day.at(h).do(job)
-
-    # Força horário BRT no scheduler (Railway roda em UTC)
-    # Ajuste: BRT = UTC-3, então convertemos os horários
+    # Relatório de saldos DESATIVADO em 30/07/26 a pedido do Samuel.
+    # (funções job/build_message permanecem; reativar = reagendar HORARIOS aqui)
+    print("   Relatório de saldos: desativado")
     schedule.clear()
-    for h in HORARIOS:
-        hh, mm = map(int, h.split(':'))
-        utc_hh = (hh + 3) % 24
-        utc_time = f"{utc_hh:02d}:{mm:02d}"
-        schedule.every().day.at(utc_time).do(job)
-        print(f"   {h} BRT → {utc_time} UTC agendado")
 
     # Aviso diário de apostas penduradas — 11:00 BRT (14:00 UTC)
     schedule.every().day.at("14:00").do(job_penduradas)
