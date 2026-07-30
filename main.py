@@ -4,7 +4,7 @@ Roda na nuvem (Railway). Dispara às 06:59 / 14:29 / 21:55 (horário de Brasíli
 """
 
 import re, requests, schedule, time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 
 # ============================================================
 SUPABASE_URL     = "https://yfdrifvhsiumdxgypkjm.supabase.co"
@@ -212,6 +212,40 @@ def job():
     except Exception as e:
         print(f"  ❌ Erro: {e}")
 
+def job_penduradas():
+    """Aviso diário: apostas PENDING cujo evento já passou (resolver no dash)."""
+    try:
+        headers = {'apikey': SUPABASE_KEY, 'Authorization': f'Bearer {SUPABASE_KEY}'}
+        hoje = (datetime.utcnow() - timedelta(hours=3)).strftime('%Y-%m-%d')
+        r = requests.get(
+            f"{SUPABASE_URL}/rest/v1/apostas"
+            f"?select=data_evento,evento,entrada,stake_unidades,tipster:tipster_id(nome)"
+            f"&status=eq.PENDING&data_evento=lt.{hoje}&order=data_evento.asc&limit=15",
+            headers=headers, timeout=15
+        )
+        r.raise_for_status()
+        rows = r.json()
+        if not rows:
+            print("  ✅ Nenhuma aposta pendurada")
+            return
+        lines = [f"⏰ *{len(rows)} aposta(s) pendente(s) com evento já encerrado:*", ""]
+        for a in rows[:10]:
+            d = a.get('data_evento') or ''
+            d_fmt = f"{d[8:10]}/{d[5:7]}" if len(d) >= 10 else d
+            tip = (a.get('tipster') or {}).get('nome') or '—'
+            ev  = (a.get('evento') or a.get('entrada') or '?')[:40]
+            su  = a.get('stake_unidades')
+            su_str = f" ({su}u)" if su is not None else ""
+            lines.append(f"• {d_fmt} — {tip} — {ev}{su_str}")
+        if len(rows) > 10:
+            lines.append(f"_… e mais {len(rows) - 10}_")
+        lines.append("")
+        lines.append("_Resolver no dash de registros._")
+        send_telegram('\n'.join(lines))
+        print(f"  ⏰ Aviso de {len(rows)} pendurada(s) enviado")
+    except Exception as e:
+        print(f"  ❌ Erro no job_penduradas: {e}")
+
 def main():
     print("🚀 Monitor Mercado Esportivo iniciado")
     print(f"   Horários programados (BRT): {', '.join(HORARIOS)}")
@@ -228,6 +262,10 @@ def main():
         utc_time = f"{utc_hh:02d}:{mm:02d}"
         schedule.every().day.at(utc_time).do(job)
         print(f"   {h} BRT → {utc_time} UTC agendado")
+
+    # Aviso diário de apostas penduradas — 11:00 BRT (14:00 UTC)
+    schedule.every().day.at("14:00").do(job_penduradas)
+    print("   11:00 BRT → 14:00 UTC agendado (penduradas)")
 
     print("\n   Aguardando próximo horário...\n")
     while True:
