@@ -246,6 +246,60 @@ def job_penduradas():
     except Exception as e:
         print(f"  ❌ Erro no job_penduradas: {e}")
 
+# ── Aviso de silêncio no Planilhar ─────────────────────────────────
+# Turnos (BRT): 07:00–14:30 e 14:30–22:00. O relógio de silêncio ZERA na
+# virada de turno (o turno que entra não herda o buraco do anterior) e fora
+# da janela não conta. 1 aviso por período de silêncio: rearma com bet nova
+# ou turno novo. Mensagens rotativas de rotina.
+TURNO_MANHA  = (7, 0)
+TURNO_TARDE  = (14, 30)
+FIM_JANELA   = (22, 0)
+SILENCIO_MIN = 90
+
+_ultimo_aviso_silencio = None
+_msg_idx = 0
+MSGS_SILENCIO = [
+    "⏸️ *{m} min sem registros no Planilhar.*\nBom momento pra resolver as apostas pendentes do dia no dash.",
+    "⏸️ *{m} min sem registros no Planilhar.*\nAproveita pra conferir e atualizar os saldos das contas movimentadas hoje.",
+    "⏸️ *{m} min sem registros no Planilhar.*\nVale revisar as apostas marcadas com 🤨 e corrigir o que ficou pendente.",
+]
+
+def brt_now():
+    return datetime.utcnow() - timedelta(hours=3)
+
+def job_silencio():
+    global _ultimo_aviso_silencio, _msg_idx
+    try:
+        agora = brt_now()
+        hm = (agora.hour, agora.minute)
+        if hm < TURNO_MANHA or hm >= FIM_JANELA:
+            _ultimo_aviso_silencio = None
+            return
+        turno = TURNO_TARDE if hm >= TURNO_TARDE else TURNO_MANHA
+        t_ini = agora.replace(hour=turno[0], minute=turno[1], second=0, microsecond=0)
+
+        headers = {'apikey': SUPABASE_KEY, 'Authorization': f'Bearer {SUPABASE_KEY}'}
+        r = requests.get(
+            f"{SUPABASE_URL}/rest/v1/apostas?select=criado_em&order=criado_em.desc&limit=1",
+            headers=headers, timeout=15
+        )
+        r.raise_for_status()
+        rows = r.json()
+        last_bet = None
+        if rows and rows[0].get('criado_em'):
+            dt = datetime.fromisoformat(rows[0]['criado_em'].replace('Z', '+00:00'))
+            last_bet = dt.replace(tzinfo=None) - timedelta(hours=3)
+
+        ref = max(x for x in (last_bet, t_ini) if x is not None)
+        if (agora - ref) >= timedelta(minutes=SILENCIO_MIN) and \
+           (_ultimo_aviso_silencio is None or _ultimo_aviso_silencio < ref):
+            send_telegram(MSGS_SILENCIO[_msg_idx % len(MSGS_SILENCIO)].format(m=SILENCIO_MIN))
+            _ultimo_aviso_silencio = agora
+            _msg_idx += 1
+            print(f"  ⏸️ Aviso de silêncio enviado ({SILENCIO_MIN}min, turno {turno[0]:02d}:{turno[1]:02d})")
+    except Exception as e:
+        print(f"  ❌ Erro no job_silencio: {e}")
+
 def main():
     print("🚀 Monitor Mercado Esportivo iniciado")
     print(f"   Horários programados (BRT): {', '.join(HORARIOS)}")
@@ -266,6 +320,10 @@ def main():
     # Aviso diário de apostas penduradas — 11:00 BRT (14:00 UTC)
     schedule.every().day.at("14:00").do(job_penduradas)
     print("   11:00 BRT → 14:00 UTC agendado (penduradas)")
+
+    # Vigia de silêncio no Planilhar — checa a cada 5 min
+    schedule.every(5).minutes.do(job_silencio)
+    print("   Vigia de silêncio ativo (90min, turnos 07:00-14:30 / 14:30-22:00 BRT)")
 
     print("\n   Aguardando próximo horário...\n")
     while True:
