@@ -260,7 +260,6 @@ _ultimo_aviso_silencio = None
 _msg_idx = 0
 MSGS_SILENCIO = [
     "⏸️ *{m} min sem registros no Planilhar.*\nBom momento pra resolver as apostas pendentes do dia no dash.",
-    "⏸️ *{m} min sem registros no Planilhar.*\nAproveita pra atualizar no dash o saldo das contas que vocês usaram hoje (apostas, saques ou depósitos).",
     "⏸️ *{m} min sem registros no Planilhar.*\nVale revisar as apostas marcadas com 🤨 e corrigir o que ficou pendente.",
 ]
 
