@@ -192,18 +192,6 @@ def build_message(data):
             lines.append("")
         lines.append("")
 
-    if all_yellow:
-        lines.append("⚠️ *Precisam de ação:*")
-        lines.append("")
-        for (label, y) in all_yellow:
-            login = simplify_login(y['login'])
-            att   = fmt_data(y['atualizado_em'])
-            user  = fmt_user(y['atualizado_por'])
-            user_str = f" · {user}" if user else ""
-            lines.append(f"• {label} {login} — {y['situacao']}")
-            lines.append(f"  _att {att}{user_str}_")
-            lines.append("")
-
     return '\n'.join(lines)
 
 def send_telegram(message):
