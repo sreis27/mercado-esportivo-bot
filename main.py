@@ -301,6 +301,99 @@ def job_silencio():
     except Exception as e:
         print(f"  ❌ Erro no job_silencio: {e}")
 
+DOW_NOMES = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado']
+
+def _fu(v):
+    """+12,3u / -4,8u"""
+    v = float(v)
+    s = f"{abs(v):,.1f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return ("+" if v >= 0 else "-") + s + "u"
+
+def _fi(v):
+    return f"{int(v):,}".replace(",", ".")
+
+def _t_hoje_1a(d):
+    x = d.get('hoje_1a') or {}
+    if not x.get('n'): return None
+    return f"📅 Neste dia, há exatamente 1 ano: {x['n']} entradas registradas e {_fu(x['pl'])} no fechamento."
+
+def _t_mes(d):
+    m = d.get('mes') or {}
+    if m.get('atual') is None or m.get('ano_passado') is None: return None
+    return f"🗓️ O mês atual está em {_fu(m['atual'])}. O mesmo mês do ano passado fechou em {_fu(m['ano_passado'])}."
+
+def _t_top30(d):
+    x = d.get('top30') or {}
+    if not x.get('nome'): return None
+    return f"🏆 Tipster mais lucrativo dos últimos 30 dias: {x['nome']} — {_fu(x['pl'])} a {x['roi']}% de ROI."
+
+def _t_oddg(d):
+    x = d.get('oddg30') or {}
+    if not x.get('odd'): return None
+    return f"🎯 Maior odd que virou green nos últimos 30 dias: {x['odd']} — {x['evento']} ({x.get('tipster') or '—'})."
+
+def _t_hist(d):
+    x = d.get('hist') or {}
+    if not x.get('n'): return None
+    return f"📚 A operação já registrou {_fi(x['n'])} apostas e {_fi(x['inv'])}u investidas — P/L histórico de {_fu(x['pl'])}."
+
+def _t_streak(d):
+    dias = d.get('d15') or []
+    if len(dias) < 2: return None
+    seq = 0; sinal = None
+    for row in reversed(dias):
+        pl = float(row.get('pl') or 0)
+        s = 1 if pl > 0 else (-1 if pl < 0 else 0)
+        if s == 0: break
+        if sinal is None: sinal = s
+        if s != sinal: break
+        seq += 1
+    if seq < 2: return None
+    if sinal > 0:
+        return f"🔥 A operação vem de {seq} dias seguidos no verde."
+    return f"🧊 São {seq} dias seguidos no vermelho — hora de virar o jogo."
+
+def _t_dow(d):
+    x = d.get('dow') or {}
+    if x.get('idx') is None: return None
+    return f"📊 Historicamente, {DOW_NOMES[int(x['idx'])]} é o melhor dia da semana da operação: {_fu(x['pl'])} acumuladas."
+
+def _t_pico(d):
+    x = d.get('pico') or {}
+    if x.get('falta') is None: return None
+    falta = float(x['falta'])
+    if falta <= 0:
+        return "🏔️ A operação está NO PICO histórico de lucro — cada green a partir daqui é recorde novo."
+    return f"🏔️ Faltam {_fu(falta)[1:]} para bater o pico histórico de lucro da operação."
+
+def _t_g7(d):
+    x = d.get('g7') or {}
+    if not x.get('u'): return None
+    return f"💎 Maior green da semana: {_fu(x['u'])} — {x['evento']} ({x.get('tipster') or '—'})."
+
+TEMPLATES_CURIOSIDADE = [_t_pico, _t_top30, _t_hoje_1a, _t_g7, _t_dow, _t_streak, _t_oddg, _t_mes, _t_hist]
+
+def job_curiosidade(slot=0):
+    """Uma curiosidade sobre a operação, 2x/dia (rotação determinística por dia+slot)."""
+    try:
+        headers = {'apikey': SUPABASE_KEY, 'Authorization': f'Bearer {SUPABASE_KEY}',
+                   'Content-Type': 'application/json'}
+        r = requests.post(f"{SUPABASE_URL}/rest/v1/rpc/curiosidades_operacao",
+                          headers=headers, json={}, timeout=20)
+        r.raise_for_status()
+        dados = r.json()
+        n = len(TEMPLATES_CURIOSIDADE)
+        base = (brt_now().timetuple().tm_yday * 2 + slot) % n
+        frase = None
+        for i in range(n):
+            frase = TEMPLATES_CURIOSIDADE[(base + i) % n](dados)
+            if frase: break
+        if not frase: return
+        send_telegram(f"💡 *Curiosidade da operação*\n{frase}")
+        print(f"  💡 Curiosidade enviada (slot {slot})")
+    except Exception as e:
+        print(f"  ❌ Erro no job_curiosidade: {e}")
+
 MSG_MISSOES = ("🎁 *Checklist de início de turno:*\n"
                "Ativem as missões da Betano nas contas — missão ativada é aposta grátis garantida. "
                "Não deixem freebet na mesa.")
@@ -331,6 +424,11 @@ def main():
     schedule.every().day.at("10:30").do(job_missoes)
     schedule.every().day.at("18:00").do(job_missoes)
     print("   07:30 e 15:00 BRT agendados (missões Betano)")
+
+    # Curiosidades da operação — 12:00 e 18:00 BRT (15:00 / 21:00 UTC)
+    schedule.every().day.at("15:00").do(job_curiosidade, slot=0)
+    schedule.every().day.at("21:00").do(job_curiosidade, slot=1)
+    print("   12:00 e 18:00 BRT agendados (curiosidades)")
 
     print("\n   Aguardando próximo horário...\n")
     while True:
