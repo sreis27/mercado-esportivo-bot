@@ -249,8 +249,8 @@ def job_penduradas():
 # ── Aviso de silêncio no Planilhar ─────────────────────────────────
 # Turnos (BRT): 07:00–14:30 e 14:30–22:00. O relógio de silêncio ZERA na
 # virada de turno (o turno que entra não herda o buraco do anterior) e fora
-# da janela não conta. 1 aviso por período de silêncio: rearma com bet nova
-# ou turno novo. Mensagens rotativas de rotina.
+# da janela não conta. Avisa aos 90min e re-avisa a cada 90min enquanto o
+# silêncio durar (90/180/270...). Mensagens rotativas de rotina.
 TURNO_MANHA  = (7, 0)
 TURNO_TARDE  = (14, 30)
 FIM_JANELA   = (22, 0)
@@ -260,7 +260,7 @@ _ultimo_aviso_silencio = None
 _msg_idx = 0
 MSGS_SILENCIO = [
     "⏸️ *{m} min sem registros no Planilhar.*\nBom momento pra resolver as apostas pendentes do dia no dash.",
-    "⏸️ *{m} min sem registros no Planilhar.*\nAproveita pra conferir e atualizar os saldos das contas movimentadas hoje.",
+    "⏸️ *{m} min sem registros no Planilhar.*\nAproveita pra atualizar no dash o saldo das contas que vocês usaram hoje (apostas, saques ou depósitos).",
     "⏸️ *{m} min sem registros no Planilhar.*\nVale revisar as apostas marcadas com 🤨 e corrigir o que ficou pendente.",
 ]
 
@@ -291,8 +291,10 @@ def job_silencio():
             last_bet = dt.replace(tzinfo=None) - timedelta(hours=3)
 
         ref = max(x for x in (last_bet, t_ini) if x is not None)
-        if (agora - ref) >= timedelta(minutes=SILENCIO_MIN) and \
-           (_ultimo_aviso_silencio is None or _ultimo_aviso_silencio < ref):
+        pode_reavisar = (_ultimo_aviso_silencio is None
+                         or _ultimo_aviso_silencio < ref
+                         or (agora - _ultimo_aviso_silencio) >= timedelta(minutes=SILENCIO_MIN))
+        if (agora - ref) >= timedelta(minutes=SILENCIO_MIN) and pode_reavisar:
             send_telegram(MSGS_SILENCIO[_msg_idx % len(MSGS_SILENCIO)].format(m=SILENCIO_MIN))
             _ultimo_aviso_silencio = agora
             _msg_idx += 1
