@@ -371,7 +371,22 @@ def _t_g7(d):
     if not x.get('u'): return None
     return f"💎 Maior green da semana: {_fu(x['u'])} — {x['evento']} ({x.get('tipster') or '—'})."
 
-TEMPLATES_CURIOSIDADE = [_t_pico, _t_top30, _t_hoje_1a, _t_g7, _t_dow, _t_streak, _t_oddg, _t_mes, _t_hist]
+def _t_media15(d):
+    dias = d.get('d15') or []
+    if len(dias) < 10: return None
+    tot = sum(float(r.get('pl') or 0) for r in dias)
+    med = tot / len(dias)
+    if med >= 0:
+        return f"📈 Média dos últimos {len(dias)} dias: {_fu(med)} por dia — ritmo de {_fu(med*30)} ao mês."
+    return f"📉 Média dos últimos {len(dias)} dias: {_fu(med)} por dia. Fase de reconstrução."
+
+def _t_verdes15(d):
+    dias = d.get('d15') or []
+    if len(dias) < 10: return None
+    verdes = sum(1 for r in dias if float(r.get('pl') or 0) > 0)
+    return f"🟢 Dos últimos {len(dias)} dias, {verdes} fecharam no verde ({round(verdes/len(dias)*100)}%)."
+
+TEMPLATES_CURIOSIDADE = [_t_media15, _t_verdes15, _t_pico, _t_top30, _t_hoje_1a, _t_g7, _t_dow, _t_streak, _t_oddg, _t_mes, _t_hist]
 
 def job_curiosidade(slot=0):
     """Uma curiosidade sobre a operação, 2x/dia (rotação determinística por dia+slot)."""
@@ -383,7 +398,7 @@ def job_curiosidade(slot=0):
         r.raise_for_status()
         dados = r.json()
         n = len(TEMPLATES_CURIOSIDADE)
-        base = (brt_now().timetuple().tm_yday * 2 + slot) % n
+        base = (brt_now().timetuple().tm_yday * 4 + slot) % n
         frase = None
         for i in range(n):
             frase = TEMPLATES_CURIOSIDADE[(base + i) % n](dados)
@@ -425,10 +440,12 @@ def main():
     schedule.every().day.at("18:00").do(job_missoes)
     print("   07:30 e 15:00 BRT agendados (missões Betano)")
 
-    # Curiosidades da operação — 12:30 e 21:00 BRT (15:30 / 00:00 UTC)
-    schedule.every().day.at("15:30").do(job_curiosidade, slot=0)
-    schedule.every().day.at("00:00").do(job_curiosidade, slot=1)
-    print("   12:30 e 21:00 BRT agendados (curiosidades)")
+    # Curiosidades da operação — 09:30 / 12:30 / 17:30 / 21:30 BRT
+    schedule.every().day.at("12:30").do(job_curiosidade, slot=0)
+    schedule.every().day.at("15:30").do(job_curiosidade, slot=1)
+    schedule.every().day.at("20:30").do(job_curiosidade, slot=2)
+    schedule.every().day.at("00:30").do(job_curiosidade, slot=3)
+    print("   09:30, 12:30, 17:30 e 21:30 BRT agendados (curiosidades)")
 
     print("\n   Aguardando próximo horário...\n")
     while True:
