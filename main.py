@@ -442,6 +442,17 @@ MSG_MISSOES = ("🎁 *Checklist de início de turno:*\n"
                "Ativem as missões da Betano nas contas — missão ativada é aposta grátis garantida. "
                "Não deixem freebet na mesa.")
 
+MSG_SALDOS_TURNO = ("🧭 *Início de turno:*\n"
+                    "Deem uma olhada nos saldos disponíveis nas principais casas — "
+                    "saber onde tem munição é o que define a prioridade de uso no dia.")
+
+def job_saldos_turno():
+    try:
+        send_telegram(MSG_SALDOS_TURNO)
+        print("  🧭 Lembrete de saldos/prioridade enviado")
+    except Exception as e:
+        print(f"  ❌ Erro no job_saldos_turno: {e}")
+
 def job_missoes():
     try:
         # dia sim, dia não (paridade do dia no calendário — não depende de restart)
@@ -467,9 +478,14 @@ def main():
     schedule.every(5).minutes.do(job_silencio)
     print("   Vigia de silêncio ativo (90min, turnos 07:00-14:30 / 14:30-22:00 BRT)")
 
-    # Lembrete de missões Betano — 07:30 BRT, dia sim dia não
-    schedule.every().day.at("10:30").do(job_missoes)
-    print("   07:30 BRT agendado (missões Betano, dia sim dia não)")
+    # Saldos/prioridade do dia — início de cada turno (07:30 / 15:00 BRT)
+    schedule.every().day.at("10:30").do(job_saldos_turno)
+    schedule.every().day.at("18:00").do(job_saldos_turno)
+    print("   07:30 e 15:00 BRT agendados (saldos/prioridade do turno)")
+
+    # Lembrete de missões Betano — 08:30 BRT, dia sim dia não
+    schedule.every().day.at("11:30").do(job_missoes)
+    print("   08:30 BRT agendado (missões Betano, dia sim dia não)")
 
     # Curiosidades da operação — 09:30 / 12:30 / 17:30 / 21:30 BRT
     schedule.every().day.at("12:30").do(job_curiosidade, slot=0)
