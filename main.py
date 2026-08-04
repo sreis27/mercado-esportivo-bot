@@ -388,8 +388,10 @@ def _t_verdes15(d):
 
 TEMPLATES_CURIOSIDADE = [_t_media15, _t_verdes15, _t_pico, _t_top30, _t_hoje_1a, _t_g7, _t_dow, _t_streak, _t_oddg, _t_mes, _t_hist]
 
+JANELA_ANTI_REPETICAO = 8  # últimos envios proibidos de repetir (2 dias com 4/dia)
+
 def job_curiosidade(slot=0):
-    """Uma curiosidade sobre a operação, 2x/dia (rotação determinística por dia+slot)."""
+    """Uma curiosidade sobre a operação, 4x/dia, sem repetir template na janela."""
     try:
         headers = {'apikey': SUPABASE_KEY, 'Authorization': f'Bearer {SUPABASE_KEY}',
                    'Content-Type': 'application/json'}
@@ -397,15 +399,42 @@ def job_curiosidade(slot=0):
                           headers=headers, json={}, timeout=20)
         r.raise_for_status()
         dados = r.json()
+
+        # memória: índices enviados recentemente ficam proibidos
+        proibidos = set()
+        try:
+            rl = requests.get(
+                f"{SUPABASE_URL}/rest/v1/bot_curiosidades_log"
+                f"?select=template_idx&order=id.desc&limit={JANELA_ANTI_REPETICAO}",
+                headers=headers, timeout=15
+            )
+            rl.raise_for_status()
+            proibidos = {row['template_idx'] for row in rl.json()}
+        except Exception as e:
+            print(f"  ⚠️ Log de curiosidades indisponível ({e}); sigo sem memória")
+
         n = len(TEMPLATES_CURIOSIDADE)
         base = (brt_now().timetuple().tm_yday * 4 + slot) % n
-        frase = None
-        for i in range(n):
-            frase = TEMPLATES_CURIOSIDADE[(base + i) % n](dados)
+        frase, escolhido = None, None
+        # 1ª volta: fora da janela e com dado; 2ª volta: qualquer um com dado
+        for exigir_inedito in (True, False):
+            for i in range(n):
+                idx = (base + i) % n
+                if exigir_inedito and idx in proibidos: continue
+                frase = TEMPLATES_CURIOSIDADE[idx](dados)
+                if frase:
+                    escolhido = idx
+                    break
             if frase: break
         if not frase: return
+
         send_telegram(f"💡 *Curiosidade da operação*\n{frase}")
-        print(f"  💡 Curiosidade enviada (slot {slot})")
+        try:
+            requests.post(f"{SUPABASE_URL}/rest/v1/bot_curiosidades_log",
+                          headers=headers, json={'template_idx': escolhido}, timeout=15)
+        except Exception:
+            pass
+        print(f"  💡 Curiosidade enviada (slot {slot}, template {escolhido})")
     except Exception as e:
         print(f"  ❌ Erro no job_curiosidade: {e}")
 
