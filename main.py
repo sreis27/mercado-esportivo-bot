@@ -386,7 +386,73 @@ def _t_verdes15(d):
     verdes = sum(1 for r in dias if float(r.get('pl') or 0) > 0)
     return f"🟢 Dos últimos {len(dias)} dias, {verdes} fecharam no verde ({round(verdes/len(dias)*100)}%)."
 
-TEMPLATES_CURIOSIDADE = [_t_media15, _t_verdes15, _t_pico, _t_top30, _t_hoje_1a, _t_g7, _t_dow, _t_streak, _t_oddg, _t_mes, _t_hist]
+DOW_FRASE = {0:'os domingos', 1:'as segundas', 2:'as terças', 3:'as quartas',
+             4:'as quintas', 5:'as sextas', 6:'os sábados'}
+
+def _t_100k(d):
+    x = d.get('hist') or {}
+    n = int(x.get('n') or 0)
+    if not n: return None
+    if n >= 100000:
+        return f"🎯 Marco cruzado: a operação já passou das 100.000 apostas registradas ({_fi(n)})."
+    return f"🎯 Faltam {_fi(100000 - n)} apostas para a operação cruzar as 100.000 registradas."
+
+def _t_pior_dia_dist(d):
+    x = d.get('pior_dia') or {}
+    if not x.get('d'): return None
+    dias = (brt_now().date() - datetime.strptime(x['d'], '%Y-%m-%d').date()).days
+    return (f"🩹 O pior dia da história ({_fu(x['pl'])}) foi há {dias} dias. "
+            f"Desde então: {_fu(x['desde'])} acumuladas.")
+
+def _t_melhor_mes(d):
+    x = d.get('melhor_mes') or {}
+    m = d.get('mes') or {}
+    if not x.get('m') or m.get('atual') is None: return None
+    mm = f"{x['m'][5:7]}/{x['m'][2:4]}"
+    atual = float(m['atual']); recorde = float(x['pl'])
+    mes_atual_str = brt_now().strftime('%Y-%m')
+    if x['m'] == mes_atual_str or atual >= recorde:
+        return f"👑 O mês atual já é o melhor da história da operação: {_fu(atual)}."
+    return (f"👑 O melhor mês da história segue sendo {mm}: {_fu(recorde)}. "
+            f"O atual está a {_fu(recorde - atual)[1:]} de alcançá-lo.")
+
+def _t_bookie30(d):
+    x = d.get('bookie30') or {}
+    if not x.get('nome'): return None
+    return f"🏦 Casa mais acionada nos últimos 30 dias: {x['nome']}, {_fi(x['n'])} entradas."
+
+def _t_acerto(d):
+    x = d.get('acerto') or {}
+    if x.get('mes') is None or x.get('hist') is None: return None
+    return f"✅ Taxa de acerto do mês: {x['mes']}% — histórico da operação: {x['hist']}%."
+
+def _t_odd_tipica(d):
+    x = d.get('odd_media') or {}
+    if x.get('semana') is None or x.get('hist') is None: return None
+    s, h = float(x['semana']), float(x['hist'])
+    if abs(s - h) < 0.10:
+        tom = "em linha com o padrão histórico"
+    elif s > h:
+        tom = "semana mais agressiva que o padrão"
+    else:
+        tom = "semana mais conservadora que o padrão"
+    return f"⚖️ Odd típica (mediana) da semana: {s:.2f} vs {h:.2f} do histórico — {tom}."
+
+def _t_dow_hoje(d):
+    arr = d.get('dow_todos') or []
+    if not arr: return None
+    idx = (brt_now().weekday() + 1) % 7  # Python Mon=0 → Postgres Sun=0
+    reg = next((r for r in arr if int(r.get('idx', -1)) == idx), None)
+    if not reg: return None
+    return f"📆 Hoje é {DOW_NOMES[idx]} — historicamente, {DOW_FRASE[idx]} somam {_fu(reg['pl'])} pra operação."
+
+def _t_dia_volume(d):
+    x = d.get('dia_volume') or {}
+    if not x.get('d'): return None
+    dt = x['d']
+    return f"🌊 O dia mais movimentado da história: {dt[8:10]}/{dt[5:7]}/{dt[2:4]}, {_fi(x['n'])} entradas registradas."
+
+TEMPLATES_CURIOSIDADE = [_t_100k, _t_pior_dia_dist, _t_melhor_mes, _t_bookie30, _t_acerto, _t_odd_tipica, _t_dow_hoje, _t_dia_volume, _t_media15, _t_verdes15, _t_pico, _t_top30, _t_hoje_1a, _t_g7, _t_dow, _t_streak, _t_oddg, _t_mes, _t_hist]
 
 JANELA_ANTI_REPETICAO = 8  # últimos envios proibidos de repetir (2 dias com 4/dia)
 
