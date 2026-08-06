@@ -529,6 +529,31 @@ def job_missoes():
     except Exception as e:
         print(f"  ❌ Erro no job_missoes: {e}")
 
+def enviar_oneshot_inicio_agosto():
+    """Envio único (06/08/26): 2º melhor começo de mês da história. Auto-desarma."""
+    try:
+        if brt_now().strftime('%Y-%m-%d') != '2026-08-06':
+            return
+        headers = {'apikey': SUPABASE_KEY, 'Authorization': f'Bearer {SUPABASE_KEY}',
+                   'Content-Type': 'application/json'}
+        r = requests.get(
+            f"{SUPABASE_URL}/rest/v1/bot_curiosidades_log?select=id&template_idx=eq.-1&limit=1",
+            headers=headers, timeout=15)
+        if r.ok and r.json():
+            return  # já enviado
+        msg = ("📊 *Curiosidade especial — começo de agosto*\n"
+               "Os primeiros 5 dias somaram *+118,7u* — o *2º melhor início de mês "
+               "da história* da operação, em 30 meses.\n"
+               "Só perde pra set/25 (+122,3u), por 3,6u. O 3º lugar (abr/25, +76,7u) "
+               "ficou 42u atrás.\n"
+               "Que run. 🔥")
+        send_telegram(msg)
+        requests.post(f"{SUPABASE_URL}/rest/v1/bot_curiosidades_log",
+                      headers=headers, json={'template_idx': -1}, timeout=15)
+        print("  📊 One-shot início de agosto enviado")
+    except Exception as e:
+        print(f"  ❌ Erro no one-shot: {e}")
+
 def main():
     print("🚀 Monitor Mercado Esportivo iniciado")
     # Relatório de saldos DESATIVADO em 30/07/26 a pedido do Samuel.
@@ -559,6 +584,8 @@ def main():
     schedule.every().day.at("20:30").do(job_curiosidade, slot=2)
     schedule.every().day.at("00:30").do(job_curiosidade, slot=3)
     print("   09:30, 12:30, 17:30 e 21:30 BRT agendados (curiosidades)")
+
+    enviar_oneshot_inicio_agosto()
 
     print("\n   Aguardando próximo horário...\n")
     while True:
