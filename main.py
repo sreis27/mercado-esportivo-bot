@@ -436,7 +436,7 @@ def _t_odd_tipica(d):
         tom = "semana mais agressiva que o padrão"
     else:
         tom = "semana mais conservadora que o padrão"
-    return f"⚖️ Odd típica (mediana) da semana: {s:.2f} vs {h:.2f} do histórico — {tom}."
+    return f"⚖️ Odd típica da semana (onde está metade do dinheiro): {s:.2f} vs {h:.2f} do histórico — {tom}."
 
 def _t_dow_hoje(d):
     arr = d.get('dow_todos') or []
