@@ -554,6 +554,46 @@ def enviar_oneshot_inicio_agosto():
     except Exception as e:
         print(f"  ❌ Erro no one-shot: {e}")
 
+# ── Vigia de apostas sem tipster ───────────────────────────────────
+_ultimo_aviso_orfas = None
+
+def job_orfas():
+    """Aposta sem tipster há 12h+ → aviso (máx 1 a cada 12h enquanto houver)."""
+    global _ultimo_aviso_orfas
+    try:
+        agora = brt_now()
+        if _ultimo_aviso_orfas and (agora - _ultimo_aviso_orfas) < timedelta(hours=12):
+            return
+        headers = {'apikey': SUPABASE_KEY, 'Authorization': f'Bearer {SUPABASE_KEY}'}
+        limite = (datetime.utcnow() - timedelta(hours=12)).strftime('%Y-%m-%dT%H:%M:%S')
+        r = requests.get(
+            f"{SUPABASE_URL}/rest/v1/apostas"
+            f"?select=criado_em,data_evento,evento,entrada,operador:operador_id(nome)"
+            f"&tipster_id=is.null&criado_em=lt.{limite}"
+            f"&order=criado_em.desc&limit=12",
+            headers=headers, timeout=15
+        )
+        r.raise_for_status()
+        rows = r.json()
+        if not rows:
+            return
+        lines = [f"🕵️ *{len(rows)} aposta(s) sem tipster há 12h+:*", ""]
+        for a in rows[:8]:
+            ce = a.get('criado_em') or ''
+            d_fmt = f"{ce[8:10]}/{ce[5:7]}" if len(ce) >= 10 else '?'
+            ev = (a.get('evento') or a.get('entrada') or '?')[:38]
+            op = (a.get('operador') or {}).get('nome') or '—'
+            lines.append(f"• {d_fmt} — {ev} ({op})")
+        if len(rows) > 8:
+            lines.append(f"_… e mais {len(rows) - 8}_")
+        lines.append("")
+        lines.append("_Identificar no dash: filtro «— Sem tipster —» na aba Apostas._")
+        send_telegram('\n'.join(lines))
+        _ultimo_aviso_orfas = agora
+        print(f"  🕵️ Aviso de {len(rows)} órfã(s) enviado")
+    except Exception as e:
+        print(f"  ❌ Erro no job_orfas: {e}")
+
 def main():
     print("🚀 Monitor Mercado Esportivo iniciado")
     # Relatório de saldos DESATIVADO em 30/07/26 a pedido do Samuel.
@@ -584,6 +624,10 @@ def main():
     schedule.every().day.at("20:30").do(job_curiosidade, slot=2)
     schedule.every().day.at("00:30").do(job_curiosidade, slot=3)
     print("   09:30, 12:30, 17:30 e 21:30 BRT agendados (curiosidades)")
+
+    # Vigia de apostas sem tipster — check horário, aviso máx a cada 12h
+    schedule.every(60).minutes.do(job_orfas)
+    print("   Vigia de apostas sem tipster ativo (12h+, aviso a cada 12h)")
 
     enviar_oneshot_inicio_agosto()
 
