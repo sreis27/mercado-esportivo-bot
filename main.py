@@ -3,7 +3,7 @@ Monitor de Saldos - Mercado Esportivo
 Roda na nuvem (Railway). Dispara às 06:59 / 14:29 / 21:55 (horário de Brasília).
 """
 
-import re, requests, schedule, time
+import os, re, requests, schedule, time
 from datetime import datetime, timedelta, timezone
 
 # ============================================================
@@ -11,6 +11,8 @@ SUPABASE_URL     = "https://yfdrifvhsiumdxgypkjm.supabase.co"
 SUPABASE_KEY     = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlmZHJpZnZoc2l1bWR4Z3lwa2ptIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTkzMjg0OCwiZXhwIjoyMDkxNTA4ODQ4fQ.s1R7Akclh0LxGkljtHaBHCSJgbU9SFL8pvQArIiXsXQ"
 TELEGRAM_TOKEN   = "8011340494:AAF9QJc8Dx1DBzpIPyKJSkKoiSTNwqYJXq0"
 TELEGRAM_CHAT_ID = "-4659428992"
+# Kill switch: PAUSAR_CHAT=1 na Railway silencia todos os envios pro RM Office - Chat (jobs seguem rodando)
+PAUSAR_CHAT      = os.environ.get("PAUSAR_CHAT", "") == "1"
 # ============================================================
 
 # Horários de Brasília (UTC-3)
@@ -195,6 +197,9 @@ def build_message(data):
     return '\n'.join(lines)
 
 def send_telegram(message):
+    if PAUSAR_CHAT:
+        print("  [PAUSAR_CHAT] envio suprimido", flush=True)
+        return
     url     = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {'chat_id': TELEGRAM_CHAT_ID, 'text': message, 'parse_mode': 'Markdown'}
     requests.post(url, json=payload, timeout=15).raise_for_status()
