@@ -224,7 +224,7 @@ def job_penduradas():
         hoje = (datetime.utcnow() - timedelta(hours=3)).strftime('%Y-%m-%d')
         r = requests.get(
             f"{SUPABASE_URL}/rest/v1/apostas"
-            f"?select=data_evento,evento,entrada,stake_unidades,tipster:tipster_id(nome)"
+            f"?select=data_evento,evento,entrada,stake_unidades,tipster:tipster_id(nome),operador:operador_id(nome)"
             f"&status=eq.PENDING&data_evento=lt.{hoje}&order=data_evento.asc&limit=15",
             headers=headers, timeout=15
         )
@@ -241,7 +241,8 @@ def job_penduradas():
             ev  = (a.get('evento') or a.get('entrada') or '?')[:40]
             su  = a.get('stake_unidades')
             su_str = f" ({su}u)" if su is not None else ""
-            lines.append(f"• {d_fmt} — {tip} — {ev}{su_str}")
+            op  = (a.get('operador') or {}).get('nome')
+            lines.append(f"• {d_fmt} — {tip} — {ev}{su_str}" + (f" · {op}" if op else ""))
         if len(rows) > 10:
             lines.append(f"_… e mais {len(rows) - 10}_")
         lines.append("")
@@ -610,14 +611,11 @@ def main():
     schedule.every().day.at("14:00").do(job_penduradas)
     print("   11:00 BRT → 14:00 UTC agendado (penduradas)")
 
-    # Vigia de silêncio no Planilhar — checa a cada 5 min
-    schedule.every(5).minutes.do(job_silencio)
-    print("   Vigia de silêncio ativo (90min, turnos 07:00-14:30 / 14:30-22:00 BRT)")
-
-    # Saldos/prioridade do dia — início de cada turno (07:30 / 15:00 BRT)
-    schedule.every().day.at("10:30").do(job_saldos_turno)
-    schedule.every().day.at("18:00").do(job_saldos_turno)
-    print("   07:30 e 15:00 BRT agendados (saldos/prioridade do turno)")
+    # Vigia de silêncio e lembrete de saldos em horário fixo: DESLIGADOS em 05/10/26.
+    # Com operadores PJ por hora e escala variável, não há aviso de presença/tempo parado;
+    # o lembrete de saldos saiu daqui e vai na resposta do "entrada" (bot de prints).
+    # (funções job_silencio/job_saldos_turno ficam no arquivo; reativar = reagendar aqui)
+    print("   Vigia de silêncio e saldos por turno: desligados (entrada/saída no bot de prints)")
 
     # Lembrete de missões Betano — 08:30 BRT, dia sim dia não
     schedule.every().day.at("11:30").do(job_missoes)
