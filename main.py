@@ -617,9 +617,10 @@ def main():
     # (funções job_silencio/job_saldos_turno ficam no arquivo; reativar = reagendar aqui)
     print("   Vigia de silêncio e saldos por turno: desligados (entrada/saída no bot de prints)")
 
-    # Lembrete de missões Betano — 08:30 BRT, dia sim dia não
-    schedule.every().day.at("11:30").do(job_missoes)
-    print("   08:30 BRT agendado (missões Betano, dia sim dia não)")
+    # Lembrete de missões Betano: DESLIGADO em 11/10/26 a pedido do Samuel — casas como a Betano
+    # seguem desativadas no Brasil. (job_missoes fica no arquivo; reativar = reagendar aqui:
+    # schedule.every().day.at("11:30").do(job_missoes)  → 08:30 BRT, dia sim dia não)
+    print("   Missões Betano: desligado (casas BR desativadas)")
 
     # Curiosidades da operação — 09:30 / 12:30 / 17:30 / 21:30 BRT
     schedule.every().day.at("12:30").do(job_curiosidade, slot=0)
